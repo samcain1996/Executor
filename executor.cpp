@@ -136,13 +136,41 @@ bool LaunchProcess(const char* prcname, char** args, PID pipe[2]) {
 
     #elif __WIN32  
 
-    // TODO
+    STARTUPINFO si;
+    ZeroMemory(&si, sizeof(si));     // Init memory
+    ZeroMemory(&si.cb, sizeof(si));
+    si.dwFlags |= STARTF_USESTDHANDLES;
+    si.hStdInput = pipe[READ];
+    si.hStdError = pipe[WRITE];
+    si.hStdOutput = pipe[WRITE];
+
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&pi, sizeof(pi));
+
+    if (!CreateProcessA(
+        prcname,
+        args,
+        NULL,
+        NULL,
+        TRUE,
+        NORMAL_PRIORITY_CLASS,
+        NULL,
+        NULL,
+        &si,
+        &pi
+    )) { cerr << "Error creating process!"; return false; }
 
     #endif
 
     return true;
 }
 
+/**
+ * @brief Returns the result of the command as a string
+ * 
+ * @param readEndPoint  Pipe end to listen on
+ * @return string       Results from command
+ */
 string retrieveResults(PID readEndPoint) {
     string result;
 
@@ -153,7 +181,7 @@ string retrieveResults(PID readEndPoint) {
 
     // ASSUMPTION: CHILD WILL NEVER HANG
     do {
-        bSuccess = PeekNamedPipe(*readEndPoint, buffer, 4095, &dwRead, &dwAvail, &dwLeft);
+        bSuccess = PeekNamedPipe(readEndPoint, buffer, 4095, &dwRead, &dwAvail, &dwLeft);
         if (!bSuccess || dwRead <= 0) { break; }
         ReadFile(*readEndPoint, buffer, 4095, &dwRead, NULL);
         buffer[dwRead] = '\0';
