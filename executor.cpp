@@ -204,7 +204,7 @@ string retrieveResults(PID readEndPoint) {
 
         result.append(buffer);
 
-    } while (bSuccess && dwRead > 0)
+    } while (bSuccess && dwRead > 0);
     #elif defined(__APPLE__) || defined(__linux__)
 
     // Read each line from cin

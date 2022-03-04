@@ -15,6 +15,7 @@
     #include <Windows.h>
     #define PID void*
     #if defined(_MSC_VER)
+        #pragma warning(disable: 4996)
         #define reinterpret bit_cast
     #endif
 #endif  
