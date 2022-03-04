@@ -1,17 +1,4 @@
-#include <iostream>
-#include <string>
-#include <type_traits>
-#define READ 0
-#define WRITE 1
-#define ERROR 2
-
-#if defined(__APPLE__) || defined(__linux__)
-    #include <unistd.h>
-    #define PID pid_t
-#elif defined(_WIN32)
-    #include <Windows.h>
-    #define PID void*
-#endif  
+#include "executor.h"
 
 using namespace std;
 
@@ -39,19 +26,6 @@ int countWords(const char* words) {
     return wordCount;
 }
 
-char** ToCharArr(const std::string& str) {
-    int len = countWords(str.c_str());  // Number of elements in arr
-    int currentPos = 0;                 // Current element in word
-
-    char** arr = new char*[len];
-    for (int i = 0; i < len; i++) {
-        memcpy(arr[i], &str[currentPos], str.substr(currentPos).find(' '));
-        currentPos = str.substr(currentPos).find(' ') + 1;
-    }
-
-    return arr;
-}
-
 char* flatten(int argc, char** args) {
     int argSize = 0;
     for (int i = 0; i < argc; i++) {
@@ -61,8 +35,10 @@ char* flatten(int argc, char** args) {
     char* smashed = new char[argSize];
     int pos = 0;
     for (int i = 0; i < argc; i++) {
-        memcpy(&smashed[pos], args[i], pos+=strlen(args[i]));
-        memcpy(&smashed[pos], " ", pos+=1);
+        memcpy(&smashed[pos], args[i], strlen(args[i]));
+        pos += strlen(args[i]);
+        memcpy(&smashed[pos], " ", 1);
+        pos++;
     }
     
     smashed[pos-1] = '\0';
@@ -104,7 +80,7 @@ bool createPipe(PID endPoints[2]) {
  * @param args      command-line arguments
  * @return bool     True if src is not empty, otherwise false
  */
-bool processArgs(const string& src, char*& prcname, void*& args) {
+bool processArgs(const string& src, char*& prcname, Args& args) {
     // Nothing to split
     if (src.empty()) { return false; }
 
@@ -119,36 +95,29 @@ bool processArgs(const string& src, char*& prcname, void*& args) {
     // Loop through each word in str
     for (size_t argIdx = 0, curIdx = 0; 
           argIdx < numOfArgs && curIdx < src.size(); argIdx++) {
-        
+
         // Local copy of word
-        const char* arg = src.substr(curIdx, src.substr(curIdx).find(' ')).c_str();
-        
-        #if defined(_WIN32)
-
-        memcpy(args, arg, strlen(arg));
-        memcpy(args, " ", 1);
-
-        #elif defined(__APPLE__) || defined(__linux__)
+        char* arg = new char[strlen(src.substr(curIdx, src.substr(curIdx).find(" ")).c_str()) + 1];
+        memcpy(arg, src.substr(curIdx, src.substr(curIdx).find(" ")).c_str(), strlen(src.substr(curIdx, src.substr(curIdx).find(" ")).c_str()));
+        arg[strlen(arg)] = NULL;
 
         // Copy word to word array
-        ((char**)args)[argIdx] = new char[strlen(arg) + 1];
-        strcpy(((char**)args)[argIdx], arg);
-
-        #endif
+        reinterpret<char**>(args)[argIdx] = new char[strlen(arg) + 1];
+        strcpy(reinterpret<char**>(args)[argIdx], arg);
 
         // Move starting index
-        curIdx += src.substr(curIdx).find(' ') + 1;
+        curIdx += src.substr(curIdx).find(" ") + 1;
     }
 
     #if defined(__APPLE__) || defined(__linux__)
 
-    prcname = ((char**)args)[0];
-    ((char**)args)[numOfArgs - 1] = NULL;
+    prcname = reinterpret<char**>(args)[0];
+    reinterpret<char**>(args)[numOfArgs - 1] = NULL;
 
     #elif defined(_WIN32)
 
-    prcname = "C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe";
-    (char*)args = flatten(numOfArgs, (char**)args);
+    prcname = const_cast<char*>("C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe");
+    args = flatten(numOfArgs, reinterpret<char**>args);
     
     #endif
 
@@ -163,7 +132,7 @@ bool processArgs(const string& src, char*& prcname, void*& args) {
  * @param pipe      Anonymous pipe to send data through
  * @return          True if process successfully launched
  */
-bool LaunchProcess(const char* prcname, void* args, PID pipe[2]) {
+bool LaunchProcess(const char* prcname, Args args, PID pipe[2]) {
 
     #if defined(__APPLE__) || defined(__linux__)
     pid_t pid = fork();  // Create child process
@@ -172,7 +141,7 @@ bool LaunchProcess(const char* prcname, void* args, PID pipe[2]) {
     if (pid == 0) {
         close(pipe[READ]);
         dup2(pipe[WRITE], WRITE);
-        execvp(prcname, (char**)args);
+        execvp(prcname, reinterpret<char**>(args));
     }
     // Parent process waits for child to finish
     else {
@@ -188,7 +157,7 @@ bool LaunchProcess(const char* prcname, void* args, PID pipe[2]) {
 
     #elif defined(_WIN32)  
 
-     STARTUPINFO si;
+     STARTUPINFOA si;
      ZeroMemory(&si, sizeof(si));     // Init memory
      ZeroMemory(&si.cb, sizeof(si));
      si.dwFlags |= STARTF_USESTDHANDLES;
@@ -230,7 +199,7 @@ string retrieveResults(PID readEndPoint) {
     do {
         bSuccess = PeekNamedPipe(readEndPoint, buffer, 4095, &dwRead, &dwAvail, &dwLeft);
         if (!bSuccess || dwRead <= 0) { break; }
-        ReadFile(*readEndPoint, buffer, 4095, &dwRead, NULL);
+        ReadFile(readEndPoint, buffer, 4095, &dwRead, NULL);
         buffer[dwRead] = '\0';
 
         result.append(buffer);
