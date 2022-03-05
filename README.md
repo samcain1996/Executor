@@ -13,5 +13,23 @@ g++ executor.h executor.cpp
 
 ## Example
 
-TODO
-
+```
+std::string results = RunCommand("ls -a");
+std::cout << results;
+```
+On macOS the following code gives:
+```
+.
+..
+.git
+.gitignore
+.vscode
+LICENSE
+README.md
+example.cpp
+executor
+executor.cpp
+executor.dSYM
+executor.h
+executor.h.gch
+```
