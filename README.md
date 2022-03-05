@@ -1,5 +1,17 @@
 # Executor
-Cross-platform library that makes it easy to execute system commands and retrieve their responses.
 
-Exposes function executrix(const string&) that will execute command and return
-the results in the form of a string.
+Cross-platform code that allows for an OS command to be run and its results returned
+
+## Set up
+
+Compile executor.h and executor.cpp, no special flags should be needed.
+
+GCC Example:
+```
+g++ executor.h executor.cpp
+```
+
+## Example
+
+TODO
+
