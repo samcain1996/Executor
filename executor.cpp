@@ -120,7 +120,7 @@ bool processArgs(const string& src, char*& prcname, Args& args) {
         strcpy(arg, src.substr(curIdx, src.substr(curIdx).find(" ")).c_str());
 
         // Store arg in array of args
-        DEDUCE_TYPE(args)[argIdx] = arg;
+        reinterpret_cast<char**>(args)[argIdx] = arg;
 
         // Move starting index
         curIdx += src.substr(curIdx).find(" ") + 1;
@@ -134,7 +134,7 @@ bool processArgs(const string& src, char*& prcname, Args& args) {
     #elif defined(_WIN32)
 
     prcname = const_cast<char*>("C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe");
-    args = flatten(numOfArgs, DEDUCE_TYPE(args));
+    args = flatten(numOfArgs, reinterpret_cast<char**>(args));
     
     #endif
 
@@ -203,7 +203,7 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
     return true;
 }
 
-string retrieveResults(PID readEndPoint) {
+string retrieveResults(PID& readEndPoint) {
     string result;
 
     #if defined(_WIN32)
@@ -216,7 +216,7 @@ string retrieveResults(PID readEndPoint) {
         bSuccess = PeekNamedPipe(readEndPoint, buffer, 4095, &dwRead, &dwAvail, &dwLeft);
         if (!bSuccess || dwRead <= 0) { break; }
         ReadFile(readEndPoint, buffer, 4095, &dwRead, NULL);
-        buffer[dwRead] = '\0';
+        buffer[dwRead] = NULL;
 
         result.append(buffer);
 
@@ -258,6 +258,7 @@ void DeleteArgs(Args& args, int count = 0) {
 string runScript(const string& script) {
 
     string results;
+
     // Get process name and arguments
     char* prcname = nullptr;
     void* args = nullptr;
@@ -277,7 +278,6 @@ string runScript(const string& script) {
     DeleteArgs(args, countWords(script.c_str()));
 
     return results;
-    
 }
 
 int main(int argc, char** argv) {
@@ -286,4 +286,5 @@ int main(int argc, char** argv) {
     command = runScript(command);
     cout << command << endl;
     return 0;
+
 }
