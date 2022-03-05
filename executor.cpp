@@ -26,22 +26,41 @@ int countWords(const char* words) {
     return wordCount;
 }
 
-char* flatten(int argc, char** args) {
+/**
+ * @brief               Convert char* array to a char* with a 
+ *                      seperator between array elements
+ * 
+ * @param argc          Number of element in array
+ * @param args          Array to convert
+ * @param seperator     Character separating array elements
+ * @return char*        Character string to flattened array
+ */
+char* flatten(int argc, char** args, char seperator = ' ') {
+
+    // Get length of all words with separator between them
     int argSize = 0;
     for (int i = 0; i < argc; i++) {
         argSize += strlen(args[i]) + 1;
     }
 
+    // Convert char** to char*
     char* smashed = new char[argSize];
     int pos = 0;
     for (int i = 0; i < argc; i++) {
+        // Copy word in word char* array to current position in char*
         memcpy(&smashed[pos], args[i], strlen(args[i]));
         pos += strlen(args[i]);
-        memcpy(&smashed[pos], " ", 1);
+
+        // Free memory storing word
+        delete[] args[i];
+
+        // Concat a separator between words
+        memcpy(&smashed[pos], &seperator, sizeof(char));
         pos++;
     }
     
-    smashed[pos-1] = '\0';
+    // Set null character
+    smashed[pos-1] = static_cast<char>(NULL);
 
     return smashed;
 }
@@ -96,14 +115,12 @@ bool processArgs(const string& src, char*& prcname, Args& args) {
     for (size_t argIdx = 0, curIdx = 0; 
           argIdx < numOfArgs && curIdx < src.size(); argIdx++) {
 
-        // Local copy of word
+        // Copy argument to char*
         char* arg = new char[strlen(src.substr(curIdx, src.substr(curIdx).find(" ")).c_str()) + 1];
-        memcpy(arg, src.substr(curIdx, src.substr(curIdx).find(" ")).c_str(), strlen(src.substr(curIdx, src.substr(curIdx).find(" ")).c_str()));
-        arg[strlen(arg)] = NULL;
+        strcpy(arg, src.substr(curIdx, src.substr(curIdx).find(" ")).c_str());
 
-        // Copy word to word array
-        reinterpret<char**>(args)[argIdx] = new char[strlen(arg) + 1];
-        strcpy(reinterpret<char**>(args)[argIdx], arg);
+        // Store arg in array of args
+        DEDUCE_TYPE(args)[argIdx] = arg;
 
         // Move starting index
         curIdx += src.substr(curIdx).find(" ") + 1;
@@ -111,13 +128,13 @@ bool processArgs(const string& src, char*& prcname, Args& args) {
 
     #if defined(__APPLE__) || defined(__linux__)
 
-    prcname = reinterpret<char**>(args)[0];
-    reinterpret<char**>(args)[numOfArgs - 1] = NULL;
+    prcname = DEDUCE_TYPE(args)[0];
+    DEDUCE_TYPE(args)[numOfArgs - 1] = NULL;
 
     #elif defined(_WIN32)
 
     prcname = const_cast<char*>("C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe");
-    args = flatten(numOfArgs, reinterpret<char**>args);
+    args = flatten(numOfArgs, DEDUCE_TYPE(args));
     
     #endif
 
@@ -132,7 +149,7 @@ bool processArgs(const string& src, char*& prcname, Args& args) {
  * @param pipe      Anonymous pipe to send data through
  * @return          True if process successfully launched
  */
-bool LaunchProcess(const char* prcname, Args args, PID pipe[2]) {
+bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
 
     #if defined(__APPLE__) || defined(__linux__)
     pid_t pid = fork();  // Create child process
@@ -141,7 +158,7 @@ bool LaunchProcess(const char* prcname, Args args, PID pipe[2]) {
     if (pid == 0) {
         close(pipe[READ]);
         dup2(pipe[WRITE], WRITE);
-        execvp(prcname, reinterpret<char**>(args));
+        execvp(prcname, DEDUCE_TYPE(args));
     }
     // Parent process waits for child to finish
     else {
@@ -149,8 +166,8 @@ bool LaunchProcess(const char* prcname, Args args, PID pipe[2]) {
         dup2(pipe[READ], READ);
 
         // Wait for command to finish
-        int exitcode = 0;
-        waitpid(pid, &exitcode, 0);
+        int status = 0;
+        waitpid(pid, &status, 0);
 
         close(pipe[READ]);  // Allows EOF to be set
     }
@@ -170,7 +187,7 @@ bool LaunchProcess(const char* prcname, Args args, PID pipe[2]) {
 
      if (!CreateProcessA(
          prcname,
-         (char*)args,
+         DEDUCE_TYPE(args),
          NULL,
          NULL,
          TRUE,
@@ -180,7 +197,6 @@ bool LaunchProcess(const char* prcname, Args args, PID pipe[2]) {
          &si,
          &pi
      )) { cerr << "Error creating process!"; return false; }
-
 
     #endif
 
@@ -218,22 +234,50 @@ string retrieveResults(PID readEndPoint) {
     return result;
 }
 
+/**
+ * @brief           Deletes arguments
+ * 
+ * @param args      Arguments to delete
+ * @param count     Number of args to delete if stored as a char**
+ */
+void DeleteArgs(Args& args, int count = 0) {
+    #if defined(__APPLE__) || defined(_linux__)
+
+    for (int i = 0; i < count; i++) {
+        delete[] (DEDUCE_TYPE(args))[i];
+    }
+    delete[] DEDUCE_TYPE(args);
+
+    #elif defined(_WIN32)
+
+    delete[] DEDUCE_TYPE(args);
+
+    #endif
+}
+
 string runScript(const string& script) {
 
+    string results;
     // Get process name and arguments
     char* prcname = nullptr;
     void* args = nullptr;
-    if (!processArgs(script, prcname, args)) { return ""; }
+    if (!processArgs(script, prcname, args)) { return results; }
 
     // Create pipe
     PID pipefd[2];
-    if (!createPipe(pipefd)) { return ""; };
+    if (!createPipe(pipefd)) { return results; };
 
     // Launch process
-    if (!LaunchProcess(prcname, args, pipefd)) { return ""; }
+    if (!LaunchProcess(prcname, args, pipefd)) { return results; }
 
     // Get results
-    return retrieveResults(pipefd[READ]);
+    results = retrieveResults(pipefd[READ]);
+
+    // Free memory
+    DeleteArgs(args, countWords(script.c_str()));
+
+    return results;
+    
 }
 
 int main(int argc, char** argv) {
