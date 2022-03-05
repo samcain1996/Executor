@@ -203,6 +203,12 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
     return true;
 }
 
+/**
+ * @brief               Reads results from child process through pipe
+ * 
+ * @param readEndPoint  HANDLE to pipe in Windows
+ * @return string       Contents of pipe
+ */
 string retrieveResults(PID& readEndPoint) {
     string result;
 
@@ -228,6 +234,7 @@ string retrieveResults(PID& readEndPoint) {
     while(getline(cin, line)) {
         result += line + "\n";
     }
+    result.erase(result.end() - 1);  // Erase trailing '\n'
 
     #endif
 
