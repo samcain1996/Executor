@@ -14,7 +14,7 @@
     #include <Windows.h>
     #define PID void*
     #if defined(_MSC_VER)
-        #pragma warning(disable: 4996)
+        #pragma warning(disable: 4996, 6031)
         #define DEDUCE_TYPE reinterpret_cast<char*>
     #endif
 #endif  

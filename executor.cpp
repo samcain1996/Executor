@@ -99,20 +99,21 @@ bool createPipe(PID endPoints[2]) {
  * @param args      command-line arguments
  * @return bool     True if src is not empty, otherwise false
  */
-bool processArgs(const string& src, char*& prcname, Args& args) {
+bool ProcessArgs(const string& src, char*& prcname, Args& args) {
     // Nothing to split
     if (src.empty()) { return false; }
 
     int numOfArgs = countWords(src.c_str());   // Number of words in str
 
-    #if defined(__APPLE__) || defined(__linux__)
-        numOfArgs++;
+    #if defined(_WIN32)
+    prcname = const_cast<char*>("C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe");
     #endif
 
-    args = new char*[numOfArgs];
+    args = new char*[++numOfArgs];
+    size_t startIdx = 0;
 
     // Loop through each word in str
-    for (size_t argIdx = 0, curIdx = 0; 
+    for (size_t argIdx = startIdx, curIdx = 0; 
           argIdx < numOfArgs && curIdx < src.size(); argIdx++) {
 
         // Copy argument to char*
@@ -128,12 +129,12 @@ bool processArgs(const string& src, char*& prcname, Args& args) {
 
     #if defined(__APPLE__) || defined(__linux__)
 
+    delete[] prcname;
     prcname = DEDUCE_TYPE(args)[0];
     DEDUCE_TYPE(args)[numOfArgs - 1] = NULL;
 
     #elif defined(_WIN32)
 
-    prcname = const_cast<char*>("C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe");
     args = flatten(numOfArgs, reinterpret_cast<char**>(args));
     
     #endif
@@ -152,6 +153,7 @@ bool processArgs(const string& src, char*& prcname, Args& args) {
 bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
 
     #if defined(__APPLE__) || defined(__linux__)
+
     pid_t pid = fork();  // Create child process
 
     // Child process executes command
@@ -174,32 +176,45 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
 
     #elif defined(_WIN32)  
 
-     STARTUPINFOA si;
-     ZeroMemory(&si, sizeof(si));     // Init memory
-     ZeroMemory(&si.cb, sizeof(si));
-     si.dwFlags |= STARTF_USESTDHANDLES;
-     si.hStdInput = pipe[READ];
-     si.hStdError = pipe[WRITE];
-     si.hStdOutput = pipe[WRITE];
+    STARTUPINFOA si;
+    ZeroMemory(&si, sizeof(si));     
+    ZeroMemory(&si.cb, sizeof(si));
+    si.dwFlags |= STARTF_USESTDHANDLES;
+    si.hStdError = pipe[WRITE];
+    si.hStdOutput = pipe[WRITE];
 
-     PROCESS_INFORMATION pi;
-     ZeroMemory(&pi, sizeof(pi));
+    PROCESS_INFORMATION pi;
+    ZeroMemory(&pi, sizeof(pi));
 
-     if (!CreateProcessA(
+    void* temp = &args;
+    args = new char[strlen((char*)temp) + strlen(prcname) + 2];
+    memcpy(args, prcname, strlen(prcname));
+    memcpy(args, " ", sizeof(char));
+    memcpy(args, temp, strlen((char*)temp));
+    ((char*)args)[strlen((char*)temp) + strlen(prcname) + 1] = NULL;
+
+    if (!CreateProcessA(
          prcname,
          DEDUCE_TYPE(args),
          NULL,
          NULL,
          TRUE,
-         NORMAL_PRIORITY_CLASS,
+         0,
          NULL,
          NULL,
          &si,
          &pi
      )) { cerr << "Error creating process!"; return false; }
 
-    #endif
+     CloseHandle(pipe[WRITE]);  // Parent process doesn't need to write
 
+     // Wait for process to finish
+     WaitForSingleObject(pi.hProcess, INFINITE);
+     CloseHandle(pi.hProcess);
+     CloseHandle(pi.hThread);
+
+    #endif
+    
     return true;
 }
 
@@ -209,24 +224,34 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
  * @param readEndPoint  HANDLE to pipe in Windows
  * @return string       Contents of pipe
  */
-string retrieveResults(PID& readEndPoint) {
+string RetrieveResults(PID pipeRead) {
     string result;
 
     #if defined(_WIN32)
+
+    // Variables for reading from pipe
     DWORD dwRead, dwAvail, dwLeft;
     char buffer[4096];
     BOOL bSuccess;
 
+
+    // Extract data from pipe
     // ASSUMPTION: CHILD WILL NEVER HANG
     do {
-        bSuccess = PeekNamedPipe(readEndPoint, buffer, 4095, &dwRead, &dwAvail, &dwLeft);
+        // Check if pipe has content to read
+        bSuccess = PeekNamedPipe(pipeRead, buffer, 4095, &dwRead, &dwAvail, &dwLeft);
         if (!bSuccess || dwRead <= 0) { break; }
-        ReadFile(readEndPoint, buffer, 4095, &dwRead, NULL);
+
+        // Read content, append to result string
+        bSuccess = ReadFile(pipeRead, buffer, 4095, &dwRead, NULL);
         buffer[dwRead] = NULL;
 
         result.append(buffer);
 
     } while (bSuccess && dwRead > 0);
+
+    CloseHandle(pipeRead);
+
     #elif defined(__APPLE__) || defined(__linux__)
 
     // Read each line from cin
@@ -262,14 +287,14 @@ void DeleteArgs(Args& args, int count = 0) {
     #endif
 }
 
-string runScript(const string& script) {
+string RunScript(const string& script) {
 
     string results;
 
     // Get process name and arguments
     char* prcname = nullptr;
     void* args = nullptr;
-    if (!processArgs(script, prcname, args)) { return results; }
+    if (!ProcessArgs(script, prcname, args)) { return results; }
 
     // Create pipe
     PID pipefd[2];
@@ -279,7 +304,7 @@ string runScript(const string& script) {
     if (!LaunchProcess(prcname, args, pipefd)) { return results; }
 
     // Get results
-    results = retrieveResults(pipefd[READ]);
+    results = RetrieveResults(pipefd[READ]);
 
     // Free memory
     DeleteArgs(args, countWords(script.c_str()));
@@ -289,8 +314,8 @@ string runScript(const string& script) {
 
 int main(int argc, char** argv) {
 
-    string command = "ls -a";
-    command = runScript(command);
+    string command = "dir\n";
+    command = RunScript(command);
     cout << command << endl;
     return 0;
 
