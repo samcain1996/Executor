@@ -100,17 +100,16 @@ bool createPipe(PID endPoints[2]) {
  * @param args      command-line arguments
  * @return bool     True if src is not empty, otherwise false
  */
-bool ProcessArgs(const string& src, const char* prcname, Args& args) {
+bool ProcessArgs(const string& src, char** prcname, Args& args) {
     // Nothing to split
     if (src.empty()) { return false; }
 
     int numOfArgs = countWords(src.c_str());   // Number of words in str
 
     // Default Powershell process path
-    prcname = "C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe";
+    *prcname = "C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe";
 
-    args = new char*[numOfArgs++];
-
+    args = new char*[++numOfArgs];
     // Loop through each word in str
     for (size_t argIdx = 0, curIdx = 0; 
           argIdx < numOfArgs && curIdx < src.size(); argIdx++) {
@@ -128,9 +127,8 @@ bool ProcessArgs(const string& src, const char* prcname, Args& args) {
 
     #if defined(__APPLE__) || defined(__linux__)
 
-    delete[] prcname;
-    prcname = DEDUCE_TYPE(args)[0];
-    DEDUCE_TYPE(args)[numOfArgs - 1] = NULL;
+    *prcname = DEDUCE_TYPE(args)[0];
+    DEDUCE_TYPE(args)[numOfArgs] = NULL;
 
     #elif defined(_WIN32)
 
@@ -159,6 +157,7 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
     if (pid == 0) {
         close(pipe[READ]);
         dup2(pipe[WRITE], WRITE);
+
         execvp(prcname, DEDUCE_TYPE(args));
     }
     // Parent process waits for child to finish
@@ -258,7 +257,7 @@ string RetrieveResults(PID pipeRead) {
     while(getline(cin, line)) {
         result += line + "\n";
     }
-    result.erase(result.end() - 1);  // Erase trailing '\n'
+    if (!result.empty()) {result.erase(result.end() - 1);}  // Erase trailing '\n'
 
     #endif
 
@@ -293,7 +292,7 @@ string RunScript(const string& script) {
     // Get process name and arguments
     char* prcname = nullptr;
     void* args = nullptr;
-    if (!ProcessArgs(script, prcname, args)) { return results; }
+    if (!ProcessArgs(script, &prcname, args)) { return results; }
 
     // Create pipe
     PID pipefd[2];
@@ -313,7 +312,7 @@ string RunScript(const string& script) {
 
 int main(int argc, char** argv) {
 
-    string command = "dir\n";
+    string command = "ls -a";
     command = RunScript(command);
     cout << command << endl;
     return 0;
