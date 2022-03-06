@@ -6,10 +6,10 @@ using namespace std;
  * @brief Counts the number of words in a string
  * 
  * @param words     string to count words of
- * @return int      -1 if words is empty, else number of words in string
+ * @return int      0 if words is empty, else number of words in string
  */
-int countWords(const char* words) {
-    int wordCount = -1;
+size_t countWords(const char* words) {
+    size_t wordCount = 0;
     const char* prevChar = nullptr;
 
     for (size_t index = 0; index < strlen(words); index++) {
@@ -35,17 +35,17 @@ int countWords(const char* words) {
  * @param seperator     Character separating array elements
  * @return char*        Character string to flattened array
  */
-char* flatten(int argc, char** args, char seperator = ' ') {
+char* flatten(size_t argc, char** args, char seperator = ' ') {
 
     // Get length of all words with separator between them
-    int argSize = 0;
+    size_t argSize = 0;
     for (int i = 0; i < argc; i++) {
         argSize += strlen(args[i]) + 1;
     }
 
     // Convert char** to char*
     char* smashed = new char[argSize];
-    int pos = 0;
+    size_t pos = 0;
     for (int i = 0; i < argc; i++) {
         // Copy word in word char* array to current position in char*
         memcpy(&smashed[pos], args[i], strlen(args[i]));
@@ -64,6 +64,7 @@ char* flatten(int argc, char** args, char seperator = ' ') {
 
     return smashed;
 }
+
 
 /**
  * @brief Create pipe from specified endpoints
@@ -100,18 +101,16 @@ bool createPipe(PID endPoints[2]) {
  * @param args      command-line arguments
  * @return bool     True if src is not empty, otherwise false
  */
-bool ProcessArgs(const string& src, char** prcname, Args& args) {
+bool ProcessArgs(const string& src, char*& prcname, Args& args) {
     // Nothing to split
     if (src.empty()) { return false; }
 
-    int numOfArgs = countWords(src.c_str());   // Number of words in str
+    size_t numOfArgs = countWords(src.c_str()) + 1;   // Number of words in str
+    size_t startIdx = ARG_START_IDX;
+    args = new char*[numOfArgs];
 
-    // Default Powershell process path
-    *prcname = "C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe";
-
-    args = new char*[++numOfArgs];
     // Loop through each word in str
-    for (size_t argIdx = 0, curIdx = 0; 
+    for (size_t argIdx = startIdx, curIdx = 0; 
           argIdx < numOfArgs && curIdx < src.size(); argIdx++) {
 
         // Copy argument to char*
@@ -125,15 +124,14 @@ bool ProcessArgs(const string& src, char** prcname, Args& args) {
         curIdx += src.substr(curIdx).find(" ") + 1;
     }
 
-    #if defined(__APPLE__) || defined(__linux__)
+    reinterpret_cast<char**>(args)[numOfArgs] = NULL;   // Last argument is NULL in Unix-like systems
+    prcname = reinterpret_cast<char**>(args)[0];                    // Extract process name
 
-    *prcname = DEDUCE_TYPE(args)[0];
-    DEDUCE_TYPE(args)[numOfArgs] = NULL;
+    #if defined(_WIN32)
 
-    #elif defined(_WIN32)
-
+    reinterpret_cast<char**>(args)[0] = new char[] { PSPATH };
     args = flatten(numOfArgs, reinterpret_cast<char**>(args));
-    
+
     #endif
 
     return true;
@@ -184,15 +182,8 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
     PROCESS_INFORMATION pi;
     ZeroMemory(&pi, sizeof(pi));
 
-    void* temp = &args;
-    args = new char[strlen((char*)temp) + strlen(prcname) + 2];
-    memcpy(args, prcname, strlen(prcname));
-    memcpy(args, " ", sizeof(char));
-    memcpy(args, temp, strlen((char*)temp));
-    ((char*)args)[strlen((char*)temp) + strlen(prcname) + 1] = NULL;
-
     if (!CreateProcessA(
-         prcname,
+         PSPATH,
          DEDUCE_TYPE(args),
          NULL,
          NULL,
@@ -270,7 +261,7 @@ string RetrieveResults(PID pipeRead) {
  * @param args      Arguments to delete
  * @param count     Number of args to delete if stored as a char**
  */
-void DeleteArgs(Args& args, int count = 0) {
+void DeleteArgs(Args& args, size_t count = 0) {
     #if defined(__APPLE__) || defined(_linux__)
 
     for (int i = 0; i < count; i++) {
@@ -292,7 +283,7 @@ string RunScript(const string& script) {
     // Get process name and arguments
     char* prcname = nullptr;
     void* args = nullptr;
-    if (!ProcessArgs(script, &prcname, args)) { return results; }
+    if (!ProcessArgs(script, prcname, args)) { return results; }
 
     // Create pipe
     PID pipefd[2];
@@ -310,9 +301,9 @@ string RunScript(const string& script) {
     return results;
 }
 
-int main(int argc, char** argv) {
+int main(/*int argc, char** argv*/) {
 
-    string command = "ls -a";
+    string command = "dir\n";
     command = RunScript(command);
     cout << command << endl;
     return 0;
