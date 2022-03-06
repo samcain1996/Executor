@@ -76,6 +76,7 @@ bool createPipe(PID endPoints[2]) {
 
     #if defined(_WIN32)
 
+    // Allow pipe to inhereit 
     SECURITY_ATTRIBUTES secAttr;
     secAttr.nLength = sizeof(SECURITY_ATTRIBUTES);
     secAttr.bInheritHandle = TRUE;
@@ -99,21 +100,19 @@ bool createPipe(PID endPoints[2]) {
  * @param args      command-line arguments
  * @return bool     True if src is not empty, otherwise false
  */
-bool ProcessArgs(const string& src, char*& prcname, Args& args) {
+bool ProcessArgs(const string& src, const char* prcname, Args& args) {
     // Nothing to split
     if (src.empty()) { return false; }
 
     int numOfArgs = countWords(src.c_str());   // Number of words in str
 
-    #if defined(_WIN32)
-    prcname = const_cast<char*>("C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe");
-    #endif
+    // Default Powershell process path
+    prcname = "C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe";
 
-    args = new char*[++numOfArgs];
-    size_t startIdx = 0;
+    args = new char*[numOfArgs++];
 
     // Loop through each word in str
-    for (size_t argIdx = startIdx, curIdx = 0; 
+    for (size_t argIdx = 0, curIdx = 0; 
           argIdx < numOfArgs && curIdx < src.size(); argIdx++) {
 
         // Copy argument to char*
