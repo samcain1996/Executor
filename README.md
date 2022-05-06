@@ -1,6 +1,6 @@
 # Executor
 
-Cross-platform code that allows for an OS command to be run and its results returned
+Cross-platform code that allows for an OS command to be run and its results returned within a C++ program
 
 ## Set up
 
