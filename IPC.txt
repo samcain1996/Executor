@@ -15,4 +15,9 @@ Unix-like
 
 
 Windows
-  TODO
+
+1. Include Windows.h
+2. Create pipe
+3. Create relevant environment variables (STARTUPINFO, PROCESS_INFORMATION, etc)
+4. Reroute output of system command to pipe
+5. Read from pipe X bytes at a time
