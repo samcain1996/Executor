@@ -120,7 +120,7 @@ bool ProcessArgs(const string& src, char*& prcname, Args& args) {
         // Store arg in array of args
         reinterpret_cast<char**>(args)[argIdx] = arg;
 
-        // Move starting index
+        // Move starting index to next character in src
         curIdx += src.substr(curIdx).find(" ") + 1;
     }
 
