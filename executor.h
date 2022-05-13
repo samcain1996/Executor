@@ -3,7 +3,6 @@
 
 /* Defines that are agnostic to OS */
 
-
 // Pipe IO
 #define READ 0
 #define WRITE 1

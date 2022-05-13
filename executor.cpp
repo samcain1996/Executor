@@ -99,26 +99,27 @@ bool createPipe(PID endPoints[2]) {
  * @return bool     True if src is not empty, otherwise false
  */
 bool ProcessArgs(const string& src, char*& prcname, Args& args) {
-    // Nothing to split
+
+    // Empty, nothing to split
     if (src.empty()) { return false; }
 
     size_t numOfArgs = countWords(src.c_str());   // Number of words in str
-    size_t startIdx = ARG_START_IDX;  // Index in src of where arguments begin
-    args = new char*[numOfArgs+1];      // Create an array of strings to hold args
+    size_t argIdx = ARG_START_IDX;  // Index in src of where arguments begin
+    args = new char*[numOfArgs+1];      // Array of strings to hold args
 
     // Loop through each word in str
-    for (size_t argIdx = startIdx, curIdx = 0; 
-          argIdx < numOfArgs && curIdx < src.size(); argIdx++) {
+    for (size_t curSrcIdx = 0; argIdx < numOfArgs && 
+            curSrcIdx < src.size(); argIdx++) {
 
         // Copy argument to char*
-        char* arg = new char[strlen(src.substr(curIdx, src.substr(curIdx).find(" ")).c_str()) + 1];
-        strcpy(arg, src.substr(curIdx, src.substr(curIdx).find(" ")).c_str());
+        char* arg = new char[strlen(src.substr(curSrcIdx, src.substr(curSrcIdx).find(" ")).c_str()) + 1];
+        strcpy(arg, src.substr(curSrcIdx, src.substr(curSrcIdx).find(" ")).c_str());
 
         // Store arg in array of args
         reinterpret_cast<char**>(args)[argIdx] = arg;
 
         // Move starting index to next character in src
-        curIdx += src.substr(curIdx).find(" ") + 1;
+        curSrcIdx += src.substr(curSrcIdx).find(" ") + 1;
     }
 
     reinterpret_cast<char**>(args)[numOfArgs] = NULL;   // Last argument is NULL in Unix-like systems
@@ -212,7 +213,7 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
  * @param readEndPoint  HANDLE to pipe in Windows, otherwise not used
  * @return string       Contents of pipe
  */
-string RetrieveResults(PID pipeRead = nullptr) {
+string RetrieveResults(PID pipeRead) {
     string result;
 
     #if defined(_WIN32)
@@ -263,8 +264,9 @@ string RetrieveResults(PID pipeRead = nullptr) {
 void DeleteArgs(Args& args, size_t count = 0) {
     #if defined(__APPLE__) || defined(_linux__)
 
-    for (int i = 0; i < count; i++) {
-        delete[] (DEDUCE_TYPE(args))[i];
+    // Delete each string in args
+    for (size_t argIdx = 0; argIdx < count; argIdx++) {
+        delete[] (DEDUCE_TYPE(args))[argIdx];
     }
 
     #endif
@@ -302,7 +304,7 @@ string RunScript(const string& script) {
 
 int main(/*int argc, char** argv*/) {
 
-    string command = "dir";   // Command to run
+    string command = "ls -a";   // Command to run
     command = RunScript(command);
     cout << command << endl;
     return 0;
