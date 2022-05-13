@@ -26,6 +26,7 @@
 
     // Default path to powershell which will be used to run system commands
     #define PSPATH "C:\\Windows\\System32\\WindowsPowerShell\\V1.0\\powershell.exe"
+    #define CMDPATH "C:\\Windows\\System32\\cmd.exe"
     #define ARG_START_IDX 1  // Index to consider the "first" argument
 
     // Casts Args to string

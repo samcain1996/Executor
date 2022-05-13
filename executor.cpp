@@ -9,21 +9,18 @@ using namespace std;
  * @return int      0 if words is empty, else number of words in string
  */
 size_t countWords(const char* words) {
-    size_t wordCount = 0;
-    const char* prevChar = nullptr;
+
+    if (strlen(words) <= 0) { return 0; }
+    if (!strchr(words, ' ')) { return 1; }
+    size_t wordCount = 1;
+    const char* prevChar = &words[0];
 
     for (size_t index = 0; index < strlen(words); index++) {
-        if (index == 0) { 
-            prevChar = &words[0];
-            wordCount = 1; 
-            continue; 
-        }
-
         if (*prevChar == ' ') { wordCount++; }
         prevChar = &words[index];
     }
 
-    return wordCount;
+    return ++wordCount;
 }
 
 /**
@@ -105,9 +102,9 @@ bool ProcessArgs(const string& src, char*& prcname, Args& args) {
     // Nothing to split
     if (src.empty()) { return false; }
 
-    size_t numOfArgs = countWords(src.c_str()) + 1;   // Number of words in str
+    size_t numOfArgs = countWords(src.c_str());   // Number of words in str
     size_t startIdx = ARG_START_IDX;  // Index in src of where arguments begin
-    args = new char*[numOfArgs];
+    args = new char*[numOfArgs+1];      // Create an array of strings to hold args
 
     // Loop through each word in str
     for (size_t argIdx = startIdx, curIdx = 0; 
@@ -125,12 +122,12 @@ bool ProcessArgs(const string& src, char*& prcname, Args& args) {
     }
 
     reinterpret_cast<char**>(args)[numOfArgs] = NULL;   // Last argument is NULL in Unix-like systems
-    prcname = reinterpret_cast<char**>(args)[0];        // Extract process name
+    prcname = reinterpret_cast<char**>(args)[0];          // Extract process name
 
     #if defined(_WIN32)
 
-    reinterpret_cast<char**>(args)[0] = new char[] { PSPATH };
-    args = flatten(numOfArgs, reinterpret_cast<char**>(args));
+    reinterpret_cast<char**>(args)[0] = new char[] { CMDPATH };  // First argument is to cmd OR powershell to run system commands
+    args = flatten(numOfArgs, reinterpret_cast<char**>(args));   // Windows takes arguments as char array, convert string array to string
 
     #endif
 
@@ -185,7 +182,7 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
     ZeroMemory(&pi, sizeof(pi));
 
     if (!CreateProcessA(
-         PSPATH,
+         CMDPATH,
          DEDUCE_TYPE(args),
          NULL,
          NULL,
@@ -212,10 +209,10 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
 /**
  * @brief               Reads results from child process through pipe
  * 
- * @param readEndPoint  HANDLE to pipe in Windows
+ * @param readEndPoint  HANDLE to pipe in Windows, otherwise not used
  * @return string       Contents of pipe
  */
-string RetrieveResults(PID pipeRead) {
+string RetrieveResults(PID pipeRead = nullptr) {
     string result;
 
     #if defined(_WIN32)
@@ -235,7 +232,7 @@ string RetrieveResults(PID pipeRead) {
 
         // Read content, append to result string
         bSuccess = ReadFile(pipeRead, buffer, BUFSIZE, &dwRead, NULL);
-        buffer[dwRead] = NULL;
+        buffer[ ] = NULL;
 
         result.append(buffer);
 
@@ -305,7 +302,7 @@ string RunScript(const string& script) {
 
 int main(/*int argc, char** argv*/) {
 
-    string command = "ls -a";   // Command to run
+    string command = "dir";   // Command to run
     command = RunScript(command);
     cout << command << endl;
     return 0;
