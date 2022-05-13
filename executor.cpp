@@ -122,11 +122,11 @@ bool ProcessArgs(const string& src, char*& prcname, Args& args) {
     }
 
     reinterpret_cast<char**>(args)[numOfArgs] = NULL;   // Last argument is NULL in Unix-like systems
-    prcname = reinterpret_cast<char**>(args)[0];          // Extract process name
+    prcname = reinterpret_cast<char**>(args)[0];        // Extract process name
 
     #if defined(_WIN32)
 
-    reinterpret_cast<char**>(args)[0] = new char[] { CMDPATH };  // First argument is to cmd OR powershell to run system commands
+    reinterpret_cast<char**>(args)[0] = new char[] { PSPATH };  // First argument is to cmd OR powershell to run system commands
     args = flatten(numOfArgs, reinterpret_cast<char**>(args));   // Windows takes arguments as char array, convert string array to string
 
     #endif
@@ -182,7 +182,7 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
     ZeroMemory(&pi, sizeof(pi));
 
     if (!CreateProcessA(
-         CMDPATH,
+         PSPATH,
          DEDUCE_TYPE(args),
          NULL,
          NULL,
@@ -232,7 +232,7 @@ string RetrieveResults(PID pipeRead = nullptr) {
 
         // Read content, append to result string
         bSuccess = ReadFile(pipeRead, buffer, BUFSIZE, &dwRead, NULL);
-        buffer[ ] = NULL;
+        buffer[dwRead] = NULL;  // Assume each string is shorter than 4 kB
 
         result.append(buffer);
 
