@@ -5,7 +5,7 @@ using namespace std;
 /**
  * @brief Counts the number of words in a string
  * 
- * @param words     string to count words of
+ * @param words     string of which to count words
  * @return int      0 if words is empty, else number of words in string
  */
 size_t countWords(const char* words) {
@@ -40,26 +40,26 @@ char* flatten(size_t argc, char** args, char seperator = ' ') {
     // Get length of all words with separator between them
     size_t argSize = 0;
     for (int i = 0; i < argc; i++) {
-        argSize += strlen(args[i]) + 1;
+        argSize += strlen(args[i]) + sizeof(seperator);
     }
 
     // Convert char** to char*
     char* smashed = new char[argSize];
     size_t pos = 0;
     for (int i = 0; i < argc; i++) {
-        // Copy word in word char* array to current position in char*
-        memcpy(&smashed[pos], args[i], strlen(args[i]));
+        // Copy word in word char* array to current position in char array
+        std::memmove(&smashed[pos], args[i], strlen(args[i]));
         pos += strlen(args[i]);
 
         // Free memory storing word
         delete[] args[i];
 
         // Concat a separator between words
-        memcpy(&smashed[pos], &seperator, sizeof(char));
+        std::memmove(&smashed[pos], &seperator, sizeof(seperator));
         pos++;
     }
     
-    // Set null character
+    // Set null character to signify the end of the array
     smashed[pos-1] = static_cast<char>(NULL);
 
     return smashed;
@@ -106,7 +106,7 @@ bool ProcessArgs(const string& src, char*& prcname, Args& args) {
     if (src.empty()) { return false; }
 
     size_t numOfArgs = countWords(src.c_str()) + 1;   // Number of words in str
-    size_t startIdx = ARG_START_IDX;
+    size_t startIdx = ARG_START_IDX;  // Index in src of where arguments begin
     args = new char*[numOfArgs];
 
     // Loop through each word in str
@@ -125,7 +125,7 @@ bool ProcessArgs(const string& src, char*& prcname, Args& args) {
     }
 
     reinterpret_cast<char**>(args)[numOfArgs] = NULL;   // Last argument is NULL in Unix-like systems
-    prcname = reinterpret_cast<char**>(args)[0];                    // Extract process name
+    prcname = reinterpret_cast<char**>(args)[0];        // Extract process name
 
     #if defined(_WIN32)
 
@@ -176,7 +176,9 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
     ZeroMemory(&si, sizeof(si));     
     ZeroMemory(&si.cb, sizeof(si));
     si.dwFlags |= STARTF_USESTDHANDLES;
-    si.hStdError = pipe[WRITE];
+
+    // Redirect output and errors to pipe
+    si.hStdError  = pipe[WRITE];
     si.hStdOutput = pipe[WRITE];
 
     PROCESS_INFORMATION pi;
@@ -220,7 +222,7 @@ string RetrieveResults(PID pipeRead) {
 
     // Variables for reading from pipe
     DWORD dwRead, dwAvail, dwLeft;
-    char buffer[4096];
+    char buffer[BUFSIZE];
     BOOL bSuccess;
 
 
@@ -228,18 +230,18 @@ string RetrieveResults(PID pipeRead) {
     // ASSUMPTION: CHILD WILL NEVER HANG
     do {
         // Check if pipe has content to read
-        bSuccess = PeekNamedPipe(pipeRead, buffer, 4095, &dwRead, &dwAvail, &dwLeft);
+        bSuccess = PeekNamedPipe(pipeRead, buffer, BUFSIZE, &dwRead, &dwAvail, &dwLeft);
         if (!bSuccess || dwRead <= 0) { break; }
 
         // Read content, append to result string
-        bSuccess = ReadFile(pipeRead, buffer, 4095, &dwRead, NULL);
+        bSuccess = ReadFile(pipeRead, buffer, BUFSIZE, &dwRead, NULL);
         buffer[dwRead] = NULL;
 
         result.append(buffer);
 
     } while (bSuccess && dwRead > 0);
 
-    CloseHandle(pipeRead);
+    CloseHandle(pipeRead);  // Close pipe, it is finished being read from
 
     #elif defined(__APPLE__) || defined(__linux__)
 
@@ -248,7 +250,7 @@ string RetrieveResults(PID pipeRead) {
     while(getline(cin, line)) {
         result += line + "\n";
     }
-    if (!result.empty()) {result.erase(result.end() - 1);}  // Erase trailing '\n'
+    if (!result.empty()) { result.erase(result.end() - 1); }  // Erase trailing '\n'
 
     #endif
 
@@ -267,22 +269,22 @@ void DeleteArgs(Args& args, size_t count = 0) {
     for (int i = 0; i < count; i++) {
         delete[] (DEDUCE_TYPE(args))[i];
     }
-    delete[] DEDUCE_TYPE(args);
-
-    #elif defined(_WIN32)
-
-    delete[] DEDUCE_TYPE(args);
 
     #endif
+
+    delete[] DEDUCE_TYPE(args);
+
 }
 
 string RunScript(const string& script) {
 
     string results;
 
-    // Get process name and arguments
+    // Process name to run and arguments to pass to process
     char* prcname = nullptr;
-    void* args = nullptr;
+    void* args    = nullptr;
+
+    // Interpret process and args
     if (!ProcessArgs(script, prcname, args)) { return results; }
 
     // Create pipe
@@ -303,7 +305,7 @@ string RunScript(const string& script) {
 
 int main(/*int argc, char** argv*/) {
 
-    string command = "dir\n";
+    string command = "ls -a";   // Command to run
     command = RunScript(command);
     cout << command << endl;
     return 0;
