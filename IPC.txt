@@ -1,0 +1,18 @@
+
+Unix-like
+
+1. Include unistd.h
+2. Create pipe
+3. Fork current process
+    3a. Parent
+        3ai.   Close write end
+        3aii.  Wait for child to finish execution
+        3aiii. Close the read end
+    3b. Child
+        3bi.   Close read end
+        3bii.  Run process with execvp
+4. Read results from cin
+
+
+Windows
+  TODO
