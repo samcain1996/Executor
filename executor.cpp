@@ -147,7 +147,7 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
 
     #if defined(__APPLE__) || defined(__linux__)
 
-    pid_t pid = fork();  // Create child process
+    PID pid = fork();  // Create child process
 
     // Child process executes command
     if (pid == 0) {
