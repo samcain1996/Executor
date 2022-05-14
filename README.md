@@ -6,9 +6,9 @@ Cross-platform code that allows for an OS command to be run and its results retu
 
 Compile and executor.cpp, no special flags should be needed.
 
-GCC Example:
+Clang Example:
 ```
-g++ executor.cpp
+clang++ executor.cpp
 ```
 
 ## Example
