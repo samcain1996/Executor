@@ -10,12 +10,13 @@ using namespace std;
  */
 size_t countWords(const char* words) {
 
-    if (strlen(words) <= 0) { return 0; }
-    if (!strchr(words, ' ')) { return 1; }
-    size_t wordCount = 1;
-    const char* prevChar = &words[0];
+    if (strlen(words) <= 0) { return 0; }  // No length, no words
+    if (!strchr(words, ' ')) { return 1; } // No spaces, 1 word
 
-    for (size_t index = 0; index < strlen(words); index++) {
+    size_t wordCount = 1;                 // Number of words
+    const char* prevChar = &words[0];     // Character to examine
+
+    for (size_t index = 1; index < strlen(words); index++) {
         if (*prevChar == ' ') { wordCount++; }
         prevChar = &words[index];
     }
