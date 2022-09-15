@@ -1,7 +1,5 @@
 #include "executor.h"
 
-using namespace std;
-
 /**
  * @brief Counts the number of words in a string
  * 
@@ -42,25 +40,24 @@ char* flatten(size_t argc, char** args, char seperator = ' ') {
     }
 
     // Convert char** to char*
-    char* smashed = new char[argSize];
+    char* flattened = new char[argSize];
     size_t pos = 0;
     for (int i = 0; i < argc; i++) {
         // Copy word in word char* array to current position in char array
-        std::memmove(&smashed[pos], args[i], strlen(args[i]));
+        std::memmove(&flattened[pos], args[i], strlen(args[i]));
         pos += strlen(args[i]);
 
         // Free memory storing word
         delete[] args[i];
 
         // Concat a separator between words
-        std::memmove(&smashed[pos], &seperator, sizeof(seperator));
-        pos++;
+        std::memmove(&flattened[pos++], &seperator, sizeof(seperator));
     }
     
     // Set null character to signify the end of the array
-    smashed[pos-1] = static_cast<char>(NULL);
+    flattened[pos-1] = static_cast<char>(NULL);
 
-    return smashed;
+    return flattened;
 }
 
 
@@ -95,18 +92,18 @@ bool createPipe(PID endPoints[2]) {
 /**
  * @brief Converts command and command-line arguments to required format
  * 
- * @param prcName   command name
+ * @param processName   command name
  * @param args      command-line arguments
  * @return bool     True if src is not empty, otherwise false
  */
-bool ProcessArgs(const string& src, char*& prcname, Args& args) {
+bool ProcessArgs(const std::string& src, char*& processName, Args& args) {
 
     // Empty, nothing to split
     if (src.empty()) { return false; }
 
-    size_t numOfArgs = countWords(src.c_str());   // Number of words in str
-    size_t argIdx = ARG_START_IDX;  // Index in src of where arguments begin
-    args = new char*[numOfArgs+1];      // Array of strings to hold args
+    size_t numOfArgs = countWords(src.c_str());
+    size_t argIdx = ARG_START_IDX;              // Index in src of where arguments begin
+    args = new char*[numOfArgs+1];     
 
     // Loop through each word in str
     for (size_t curSrcIdx = 0; argIdx < numOfArgs && 
@@ -124,7 +121,7 @@ bool ProcessArgs(const string& src, char*& prcname, Args& args) {
     }
 
     reinterpret_cast<char**>(args)[numOfArgs] = NULL;   // Last argument is NULL in Unix-like systems
-    prcname = reinterpret_cast<char**>(args)[0];        // Extract process name
+    processName = reinterpret_cast<char**>(args)[0];        // Extract process name
 
     #if defined(_WIN32)
 
@@ -139,12 +136,12 @@ bool ProcessArgs(const string& src, char*& prcname, Args& args) {
 /**
  * @brief Launches process with command-line arguments
  * 
- * @param prcname   Process name
+ * @param processName   Process name
  * @param args      Command-line arguments
  * @param pipe      Anonymous pipe to send data through
  * @return          True if process successfully launched
  */
-bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
+bool LaunchProcess(const char* processName, Args& args, PID pipe[2]) {
 
     #if defined(__APPLE__) || defined(__linux__)
 
@@ -155,7 +152,7 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
         close(pipe[READ]);
         dup2(pipe[WRITE], WRITE);
 
-        execvp(prcname, DEDUCE_TYPE(args));
+        execvp(processName, DEDUCE_TYPE(args));
     }
     // Parent process waits for child to finish
     else {
@@ -214,8 +211,8 @@ bool LaunchProcess(const char* prcname, Args& args, PID pipe[2]) {
  * @param readEndPoint  HANDLE to pipe in Windows, otherwise not used
  * @return string       Contents of pipe
  */
-string RetrieveResults(PID pipeRead) {
-    string result;
+std::string RetrieveResults(PID pipeRead) {
+    std::string result;
 
     #if defined(_WIN32)
 
@@ -245,8 +242,8 @@ string RetrieveResults(PID pipeRead) {
     #elif defined(__APPLE__) || defined(__linux__)
 
     // Read each line from cin
-    string line;
-    while(getline(cin, line)) {
+    std::string line;
+    while(getline(std::cin, line)) {
         result += line + "\n";
     }
     if (!result.empty()) { result.erase(result.end() - 1); }  // Erase trailing '\n'
@@ -276,23 +273,23 @@ void DeleteArgs(Args& args, size_t count = 0) {
 
 }
 
-string RunScript(const string& script) {
+std::string RunScript(const std::string& script) {
 
-    string results;
+    std::string results;
 
     // Process name to run and arguments to pass to process
-    char* prcname = nullptr;
+    char* processName = nullptr;
     void* args    = nullptr;
 
     // Interpret process and args
-    if (!ProcessArgs(script, prcname, args)) { return results; }
+    if (!ProcessArgs(script, processName, args)) { return results; }
 
     // Create pipe
     PID pipefd[2];
     if (!createPipe(pipefd)) { return results; };
 
     // Launch process
-    if (!LaunchProcess(prcname, args, pipefd)) { return results; }
+    if (!LaunchProcess(processName, args, pipefd)) { return results; }
 
     // Get results
     results = RetrieveResults(pipefd[READ]);
@@ -301,13 +298,4 @@ string RunScript(const string& script) {
     DeleteArgs(args, countWords(script.c_str()));
 
     return results;
-}
-
-int main(/*int argc, char** argv*/) {
-
-    string command = "ls -a";   // Command to run
-    command = RunScript(command);
-    cout << command << endl;
-    return 0;
-
 }

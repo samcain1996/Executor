@@ -1,14 +1,13 @@
 # Executor
 
-Cross-platform code that allows for an OS command to be run and its results returned within a C++ program
+Cross-platform code that allows for an OS command to be run and its results returned within a program
 
-## Set up
+## Build
 
-Compile and executor.cpp, no special flags should be needed.
-
-Clang Example:
 ```
-clang++ executor.cpp
+mkdir build
+cd build
+cmake ../
 ```
 
 ## Example

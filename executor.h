@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <cstring>
 
 /* Defines that are agnostic to OS */
 
@@ -13,6 +14,7 @@
 
 #if defined(__APPLE__) || defined(__linux__)
     #include <unistd.h>                           // Used for launching processes
+    #include <sys/wait.h>                         
     #define PID pid_t                             // Type to uniquely id processes
     #define ARG_START_IDX 0                       // Index to consider the "first" argument
     #define DEDUCE_TYPE reinterpret_cast<char**>  // Casts Args into string array
@@ -34,4 +36,8 @@
     #if defined(_MSC_VER)
         #pragma warning(disable: 4996)
     #endif
-#endif  
+#endif 
+
+
+
+std::string RunScript(const std::string& script);
