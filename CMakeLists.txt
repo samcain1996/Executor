@@ -5,7 +5,7 @@ project(Executor VERSION 1.0.0 DESCRIPTION "Run system commands and get the outp
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(ExecutorDemo executor.cpp Demo.cpp)
+add_executable(ExecutorDemo executor.cpp demo.cpp)
 add_library(Executor SHARED executor.cpp)
 
 set_target_properties(Executor PROPERTIES 

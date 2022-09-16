@@ -120,13 +120,16 @@ bool ProcessArgs(const std::string& src, char*& processName, Args& args) {
         curSrcIdx += src.substr(curSrcIdx).find(" ") + 1;
     }
 
-    reinterpret_cast<char**>(args)[numOfArgs] = NULL;   // Last argument is NULL in Unix-like systems
-    processName = reinterpret_cast<char**>(args)[0];        // Extract process name
-
     #if defined(_WIN32)
 
     reinterpret_cast<char**>(args)[0] = new char[] { PSPATH };  // First argument is to cmd OR powershell to run system commands
-    args = flatten(numOfArgs, reinterpret_cast<char**>(args));   // Windows takes arguments as char array, convert string array to string
+    args = flatten(numOfArgs + 1, reinterpret_cast<char**>(args));   // Windows takes arguments as char array, convert string array to string
+
+    #else
+
+    reinterpret_cast<char**>(args)[numOfArgs] = NULL;   // Last argument is NULL in Unix-like systems
+    processName = reinterpret_cast<char**>(args)[0];        // Extract process name
+
 
     #endif
 
@@ -191,7 +194,7 @@ bool LaunchProcess(const char* processName, Args& args, PID pipe[2]) {
          NULL,
          &si,
          &pi
-     )) { cerr << "Error creating process!"; return false; }
+     )) { std::cerr << "Error creating process!"; return false; }
 
      CloseHandle(pipe[WRITE]);  // Parent process doesn't need to write
 
@@ -279,7 +282,7 @@ std::string RunScript(const std::string& script) {
 
     // Process name to run and arguments to pass to process
     char* processName = nullptr;
-    void* args    = nullptr;
+    Args args    = nullptr;
 
     // Interpret process and args
     if (!ProcessArgs(script, processName, args)) { return results; }

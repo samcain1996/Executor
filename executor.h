@@ -1,6 +1,8 @@
 #include <iostream>
 #include <string>
 #include <cstring>
+#include <sstream>
+#include <vector>
 
 /* Defines that are agnostic to OS */
 
